@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,25 +17,40 @@ namespace SearchTest
             Console.SetCursorPosition(0, 0);
             Console.WriteLine($"FindAllFilesByName: {currentDirectory.Name}");
 
-            var files = currentDirectory.GetFiles();
-            for (var i = 0; i < files.Length; i++)
+            try
             {
-                var file = files[i];
-                if (searchResult.FoundCounter >= config.Take)
+                var files = currentDirectory.GetFiles();
+                for (var i = 0; i < files.Length; i++)
                 {
-                    break;
-                }
+                    try
+                    {
 
-                if (config.IsRegisterSensitive && file.Name.Contains(searchResult.SearchText)
-                    || file.Name.ToLower().Contains(searchResult.SearchText.ToLower()))
-                {
-                    searchResult.InDirectoryByNames.AddFile(file);
-                }
+                        var file = files[i];
+                        if (searchResult.FoundCounter >= config.Take)
+                        {
+                            break;
+                        }
 
-                Console.SetCursorPosition(0, 1);
-                Console.WriteLine(new string(' ', Console.WindowWidth));
-                Console.SetCursorPosition(0, 1);
-                Console.Write($"\t{(i + 1) * 100.0 / files.Length:00.00}%");
+                        if (config.IsRegisterSensitive && file.Name.Contains(searchResult.SearchText)
+                            || file.Name.ToLower().Contains(searchResult.SearchText.ToLower()))
+                        {
+                            searchResult.InDirectoryByNames.AddFile(file);
+                        }
+
+                        Console.SetCursorPosition(0, 1);
+                        Console.WriteLine(new string(' ', Console.WindowWidth));
+                        Console.SetCursorPosition(0, 1);
+                        Console.Write($"\t{(i + 1) * 100.0 / files.Length:00.00}%");
+                    }
+                    catch
+                    {
+                        ;
+                    }
+                }
+            }
+            catch
+            {
+                ;
             }
         }
 
@@ -45,25 +61,39 @@ namespace SearchTest
             Console.SetCursorPosition(0, 0);
             Console.WriteLine($"FindAllDirectoriesByName: {currentDirectory.Name}");
 
-            var directories = currentDirectory.GetDirectories();
-            for (var i = 0; i < directories.Length; i++)
+            try
             {
-                var directory = directories[i];
-                if (searchResult.FoundCounter >= config.Take)
+                var directories = currentDirectory.GetDirectories();
+                for (var i = 0; i < directories.Length; i++)
                 {
-                    break;
-                }
+                    try
+                    {
+                        var directory = directories[i];
+                        if (searchResult.FoundCounter >= config.Take)
+                        {
+                            break;
+                        }
 
-                if (config.IsRegisterSensitive && directory.Name.Contains(searchResult.SearchText)
-                    || directory.Name.ToLower().Contains(searchResult.SearchText.ToLower()))
-                {
-                    searchResult.InDirectoryByNames.AddDirectory(directory);
-                }
+                        if (config.IsRegisterSensitive && directory.Name.Contains(searchResult.SearchText)
+                            || directory.Name.ToLower().Contains(searchResult.SearchText.ToLower()))
+                        {
+                            searchResult.InDirectoryByNames.AddDirectory(directory);
+                        }
 
-                Console.SetCursorPosition(0, 1);
-                Console.WriteLine(new string(' ', Console.WindowWidth));
-                Console.SetCursorPosition(0, 1);
-                Console.Write($"\t{(i + 1) * 100.0 / directories.Length:00.00}%");
+                        Console.SetCursorPosition(0, 1);
+                        Console.WriteLine(new string(' ', Console.WindowWidth));
+                        Console.SetCursorPosition(0, 1);
+                        Console.Write($"\t{(i + 1) * 100.0 / directories.Length:00.00}%");
+                    }
+                    catch
+                    {
+                        ;
+                    }
+                }
+            }
+            catch
+            {
+                ;
             }
         }
 
@@ -134,21 +164,36 @@ namespace SearchTest
             Console.SetCursorPosition(0, 0);
             Console.WriteLine($"FindAllInFilesInCurrentDirectory: {currentDirectory.Name}");
 
-            var files = currentDirectory.GetFiles();
-            for (var i = 0; i < files.Length; i++)
+            try
             {
-                var file = files[i];
-                if (searchResult.FoundCounter >= config.Take)
+                var files = currentDirectory.GetFiles();
+                for (var i = 0; i < files.Length; i++)
                 {
-                    break;
+                    var file = files[i];
+                    if (searchResult.FoundCounter >= config.Take)
+                    {
+                        break;
+                    }
+
+                    try
+                    {
+                        FindAllInCurrentFile(file, searchResult.SearchText, searchResult, config);
+                    }
+                    catch (Exception e)
+                    {
+                        ;
+                    }
+
+                    Console.SetCursorPosition(0, 0);
+                    Console.WriteLine(new string(' ', Console.WindowWidth));
+                    Console.SetCursorPosition(0, 0);
+                    Console.WriteLine(
+                        $"FindAllInFilesInCurrentDirectory: {currentDirectory.Name} {(i + 1) * 100.0 / files.Length:00.00}%");
                 }
-
-                FindAllInCurrentFile(file, searchResult.SearchText, searchResult, config);
-
-                Console.SetCursorPosition(0, 0);
-                Console.WriteLine(new string(' ', Console.WindowWidth));
-                Console.SetCursorPosition(0, 0);
-                Console.WriteLine($"FindAllInFilesInCurrentDirectory: {currentDirectory.Name} {(i + 1) * 100.0 / files.Length:00.00}%");
+            }
+            catch
+            {
+                ;
             }
         }
 
@@ -165,24 +210,36 @@ namespace SearchTest
         }
 
 
-        public static Task<SearchResult> SearchTextInDirectoryAsync(System.IO.DirectoryInfo currentDirectory, SearchResult searchResult, SearchConfiguration config = null)
+        public static Task<SearchResult> SearchTextInDirectoryAsync(System.IO.DirectoryInfo rootDirectory, SearchResult searchResult, SearchConfiguration config = null)
         {
+            var queue = new System.Collections.Generic.Queue<DirectoryInfo>();
+            queue.Enqueue(rootDirectory);
+
             var configuration = config ?? DefaultConfiguration;
             var mainTask = new Task<SearchResult>(() =>
             {
-                FindAllDirectoriesByNameInCurrentDirectory(currentDirectory, searchResult, config);
-                FindAllFilesByNameInCurrentDirectory(currentDirectory, searchResult, config);
-
-                if (configuration.IsSearchInContext)
+                while (queue.Count > 0)
                 {
-                    FindAllInFilesInCurrentDirectory(currentDirectory, searchResult, config);
-                }
+                    var currentDirectory = queue.Dequeue();
+                    FindAllDirectoriesByNameInCurrentDirectory(currentDirectory, searchResult, config);
+                    FindAllFilesByNameInCurrentDirectory(currentDirectory, searchResult, config);
 
-                foreach (var directoryInfo in currentDirectory.GetDirectories())
-                {
-                    var task = SearchTextInDirectoryAsync(directoryInfo, searchResult, config);
-                    task.Wait();
+                    if (configuration.IsSearchInContext)
+                    {
+                        FindAllInFilesInCurrentDirectory(currentDirectory, searchResult, config);
+                    }
 
+                    try
+                    {
+                        foreach (var directoryInfo in currentDirectory.GetDirectories())
+                        {
+                            queue.Enqueue(directoryInfo);
+                        }
+                    }
+                    catch
+                    {
+                        ;
+                    }
                 }
 
                 return searchResult;
